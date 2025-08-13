@@ -133,7 +133,9 @@ def criar_documentos_por_tema(df: pd.DataFrame):
             run_label_status = cell_status.paragraphs[0].add_run()
             run_label_status.add_picture(status_imagem, width=Inches(0.17))
             run_label_status.add_text('  Status:  ')
-            run_valor_status = cell_status.paragraphs[0].add_run(str(row.Status_Informado))
+            run_label_status.font.name = 'Neutro Thin'
+            run_label_status.font.size = Pt(9)
+            run_valor_status = cell_status.paragraphs[0].add_run(str(row.Status_Informado).capitalize())
             run_valor_status.font.name = 'Neutro'
             run_valor_status.font.size = Pt(10)
             
@@ -141,7 +143,7 @@ def criar_documentos_por_tema(df: pd.DataFrame):
             run_data_label = cell_data_merged.paragraphs[0].add_run()
             run_data_label.add_picture(icone_calendario_path, width=Inches(0.17))
             run_data_label.add_text(f'  {status_texto_label} ')
-            run_data_label.font.name = 'Neutro Thin'
+            run_data_label.font.name = 'Neutro'
             run_data_label.font.size = Pt(9)
             data_texto = prazo.strftime('%d/%m/%Y') if pd.notnull(prazo) else ''
             run_data_valor = cell_data_merged.paragraphs[0].add_run(f'\t\t {data_texto}')
