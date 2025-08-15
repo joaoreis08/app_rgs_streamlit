@@ -27,7 +27,7 @@ def limpar_nome_arquivo(nome):
     return s.lower()
 
 # --- Interface da Aplicação ---
-st.title("�� Gerador de Relatórios por Tema")
+st.title("📝 Relatório por Objetivo Estratrégico ")
 st.write(
     "Faça o upload da sua planilha Excel de iniciativas para gerar "
     "automaticamente os relatórios em formato Word (.docx), separados por tema."
@@ -63,7 +63,7 @@ if uploaded_file is not None:
                 
                 # Cria um container ou coluna para cada botão para melhor espaçamento
                 with st.container():
-                    st.subheader(f"Tema: {tema}")
+                    st.subheader(f"Objetivo Estratégico: {tema}")
                     st.download_button(
                         label=f"📥 Baixar Relatório: {tema}",
                         data=doc_io,
