@@ -1,5 +1,3 @@
-# Arquivo: gerar_word.py
-
 import pandas as pd
 from docx import Document
 from docx.shared import Pt, Inches, RGBColor
@@ -8,9 +6,8 @@ from docx.oxml import OxmlElement
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.enum.table import WD_TABLE_ALIGNMENT, WD_ALIGN_VERTICAL
 import io
-# unicodedata e re removidos por não serem utilizados
 
-# --- Dicionário de Cores (sem alteração) ---
+# --- Dicionário de Cores e Funções Auxiliares (mantidos como no original) ---
 cores_por_tema = {
     "CONHECIMENTO E INOVAÇÃO": "4400FF",
     "SAÚDE E QUALIDADE DE VIDA": "ED282C",
@@ -19,7 +16,6 @@ cores_por_tema = {
     "Gestão, Transparência e Participação": "002060"
 }
 
-# --- Funções Auxiliares (sem alterações) ---
 def set_cell_background(cell, hex_color):
     tcPr = cell._tc.get_or_add_tcPr()
     shd = OxmlElement('w:shd')
@@ -39,6 +35,7 @@ def set_paragraph_background(paragraph, color):
 
 # --- FUNÇÃO PRINCIPAL CORRIGIDA ---
 def criar_documentos_por_tema(df: pd.DataFrame):
+    # --- Preparação do DataFrame (sem alterações) ---
     df.rename(columns={
         'Órgão': 'Orgao', 'Iniciativa': 'Iniciativa', 'Status Informado': 'Status_Informado',
         'Ação': 'Acao', 'Programa': 'Programa', 'Início Realizado': 'Inicio_Realizado',
@@ -66,19 +63,33 @@ def criar_documentos_por_tema(df: pd.DataFrame):
         if pd.isna(tema):
             continue
 
-        df_tema = df2[df2['Objetivo_Estrategico'] == tema].sort_values(by='Orgao')
+        # A ORDENAÇÃO É A CHAVE PARA A LÓGICA FUNCIONAR CORRETAMENTE
+        df_tema = df2[df2['Objetivo_Estrategico'] == tema].sort_values(
+            by=['Orgao', 'Programa', 'Acao']
+        )
         
-        if df_tema.empty: # Adicionado para pular temas sem ações após o filtro
+        if df_tema.empty:
             continue
 
         doc = Document()
-        orgao_anterior = None
+        section = doc.sections[0]
+        section.left_margin = Inches(0)
+        section.right_margin = Inches(0)
+        
         cor = cores_por_tema.get(tema, "D3D3D3")
 
+        # --- VARIÁVEIS DE CONTROLE DE ESTADO ---
+        orgao_anterior = None
+        programa_anterior = None
+        acao_anterior = None
+
         for row in df_tema.itertuples(index=False):
+            # --- NÍVEL 1: Checa mudança de ÓRGÃO ---
             if row.Orgao != orgao_anterior:
                 if orgao_anterior is not None:
                     doc.add_page_break()
+                
+                # Imprime cabeçalho do Órgão
                 p_orgao = doc.add_paragraph()
                 p_orgao.alignment = WD_ALIGN_PARAGRAPH.CENTER
                 p_orgao.paragraph_format.space_after = Pt(0) 
@@ -88,37 +99,63 @@ def criar_documentos_por_tema(df: pd.DataFrame):
                 run.bold = True
                 run.font.color.rgb = RGBColor(0, 32, 96)
                 set_paragraph_background(p_orgao, 'D3D3D3')
+                
+                # Atualiza estado e REINICIA os níveis inferiores
                 orgao_anterior = row.Orgao
+                programa_anterior = None
+                acao_anterior = None
 
-            p_info = doc.add_paragraph()
-            p_info.alignment = WD_ALIGN_PARAGRAPH.CENTER
-            p_info.paragraph_format.space_before = Pt(0)
-            p_info.paragraph_format.space_after = Pt(8)
+            # --- NÍVEL 2: Checa mudança de PROGRAMA ---
+            # Esta verificação é acionada se o programa atual for diferente do anterior
+            # OU se o órgão mudou (pois programa_anterior foi reiniciado para None)
+            if row.Programa != programa_anterior:
+                p_programa = doc.add_paragraph()
+                p_programa.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                p_programa.paragraph_format.space_before = Pt(0)
+                p_programa.paragraph_format.space_after = Pt(0) # Sem espaço para a ação vir junto
 
-            run_programa = p_info.add_run(str(row.Programa).upper() + '\n')
-            run_programa.font.name = 'Gilroy ExtraBold'
-            run_programa.font.size = Pt(12)
-            run_programa.bold = True
-            run_programa.font.color.rgb = RGBColor(255, 255, 255)
+                run_programa = p_programa.add_run(str(row.Programa).upper())
+                run_programa.font.name = 'Gilroy ExtraBold'
+                run_programa.font.size = Pt(12)
+                run_programa.bold = True
+                run_programa.font.color.rgb = RGBColor(255, 255, 255)
+                set_paragraph_background(p_programa, cor)
 
-            run_acao = p_info.add_run(str(row.Acao).title())
-            run_acao.font.name = 'Gilroy Light'
-            run_acao.font.size = Pt(12)
-            run_acao.font.color.rgb = RGBColor(255, 255, 255)
-            
-            set_paragraph_background(p_info, cor)
+                # Atualiza estado e REINICIA o nível inferior
+                programa_anterior = row.Programa
+                acao_anterior = None
 
-            # --- CORREÇÃO: Caminhos das imagens usando barras normais e nomes sem acentos ---
-            status_imagem = 'imagens\concluído.png' if row.Status_Informado == 'CONCLUÍDO' else 'imagens\em_excecucao.png'
+            # --- NÍVEL 3: Checa mudança de AÇÃO ---
+            # Acionada se a ação for diferente da anterior
+            # OU se o programa/órgão mudou (pois acao_anterior foi reiniciado)
+            if row.Acao != acao_anterior:
+                p_acao = doc.add_paragraph()
+                p_acao.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                p_acao.paragraph_format.space_before = Pt(0)
+                p_acao.paragraph_format.space_after = Pt(8) # Espaço depois da ação
+
+                run_acao = p_acao.add_run(str(row.Acao).title())
+                run_acao.font.name = 'Gilroy Light'
+                run_acao.font.size = Pt(12)
+                run_acao.font.color.rgb = RGBColor(255, 255, 255)
+                # O fundo da ação deve ter a mesma cor do programa
+                set_paragraph_background(p_acao, cor)
+
+                # Atualiza estado
+                acao_anterior = row.Acao
+
+            # --- NÍVEL 4: Imprime os detalhes da INICIATIVA (sempre) ---
+            status_imagem = 'imagens\concluido.png' if row.Status_Informado == 'CONCLUÍDO' else 'imagens\em_execucao.png'
             status_texto_label = 'Data de Entrega:' if row.Status_Informado == 'CONCLUÍDO' else 'Data de Início:'
             prazo = row.Termino_Realizado if row.Status_Informado == 'CONCLUÍDO' else row.Inicio_Realizado
-            icone_localizacao_path = 'imagens\localização.png'
-            icone_calendario_path = 'imagens\calendário.png'
+            icone_localizacao_path = 'imagens\localizacao.png'
+            icone_calendario_path = 'imagens\calendario.png'
 
             table = doc.add_table(rows=4, cols=5)
             table.alignment = WD_TABLE_ALIGNMENT.CENTER
             table.autofit = False
 
+            # (O restante do código que cria a tabela permanece exatamente o mesmo)
             cell_iniciativa = table.cell(0, 0).merge(table.cell(0, 4))
             p_iniciativa = cell_iniciativa.paragraphs[0]
             p_iniciativa.alignment = WD_ALIGN_PARAGRAPH.CENTER
@@ -146,28 +183,34 @@ def criar_documentos_por_tema(df: pd.DataFrame):
             run_data_label.font.name = 'Neutro'
             run_data_label.font.size = Pt(9)
             data_texto = prazo.strftime('%d/%m/%Y') if pd.notnull(prazo) else ''
-            run_data_valor = cell_data_merged.paragraphs[0].add_run(f'\t\t {data_texto}')
+            run_data_valor = cell_data_merged.paragraphs[0].add_run(f'{data_texto}')
             run_data_valor.font.name = 'Neutro'
             run_data_valor.font.size = Pt(10)
 
-            cell_loc_label = table.cell(2, 0).merge(table.cell(2, 1))
-            run_loc_label = cell_loc_label.paragraphs[0].add_run()
-            run_loc_label.add_picture(icone_localizacao_path, width=Inches(0.17))
-            run_loc_label.add_text('  Municípios Atendidos: ')
-            run_loc_label.font.name = 'Neutro Thin'
-            run_loc_label.font.size = Pt(9)
+            # --- CORREÇÃO: Linha de Localização em uma única célula com fontes diferentes ---
 
-            # --- CORREÇÃO: Texto da localização adicionado apenas uma vez ---
-            cell_loc_valor = table.cell(2, 2).merge(table.cell(2, 4))
+            # 1. Mesclar todas as células da linha para criar um único contêiner
+            cell_municipios = table.cell(2, 0).merge(table.cell(2, 4))
+            p_municipios = cell_municipios.paragraphs[0]
+            
+            # 2. Adicionar o PRIMEIRO RUN (ícone e rótulo) com a primeira fonte
+            run_label = p_municipios.add_run()
+            run_label.add_picture(icone_localizacao_path, width=Inches(0.17))
+            run_label.add_text('  Municípios Atendidos: ') # Adicionei um espaço no final para separar
+            run_label.font.name = 'Neutro Thin'
+            run_label.font.size = Pt(9)
+
+            # 3. Adicionar o SEGUNDO RUN (valor da localização) com a segunda fonte
             localizacao_texto = "" if pd.isnull(row.Localizacao_Geografica) else str(row.Localizacao_Geografica)
-            run_loc_valor = cell_loc_valor.paragraphs[0].add_run(localizacao_texto)
-            run_loc_valor.font.name = 'Neutro'
-            run_loc_valor.font.size = Pt(10)
+            run_valor = p_municipios.add_run(localizacao_texto)
+            run_valor.font.name = 'Neutro'
+            run_valor.font.size = Pt(10)
+
+            # 4. (Opcional) Alinhar o conteúdo da célula verticalmente
+            cell_municipios.vertical_alignment = WD_ALIGN_VERTICAL.CENTER
             
             cell_rgs = table.cell(3, 0).merge(table.cell(3, 4))
-            cell_rgs.paragraphs[0].add_run(str(row.RGS_GGGE))
-            # Você pode querer definir a fonte aqui também para consistência
-            run_rgs = cell_rgs.paragraphs[0].runs[0]
+            run_rgs = cell_rgs.paragraphs[0].add_run(str(row.RGS_GGGE))
             run_rgs.font.name = 'Neutro'
             run_rgs.font.size = Pt(9)
 
