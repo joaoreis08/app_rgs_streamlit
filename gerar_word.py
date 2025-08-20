@@ -37,12 +37,12 @@ def set_paragraph_background(paragraph, color):
 def criar_documentos_por_tema(df: pd.DataFrame):
     # --- Preparação do DataFrame (sem alterações) ---
     df.rename(columns={
-        'Órgão': 'Orgao', 'Iniciativa': 'Iniciativa', 'Status Informado': 'Status_Informado',
-        'Ação': 'Acao', 'Programa': 'Programa', 'Início Realizado': 'Inicio_Realizado',
-        'Término Realizado': 'Termino_Realizado', 'RGS-GGGE': 'RGS_GGGE',
-        'Localização Geográfica': 'Localizacao_Geografica', 'Objetivo Estratégico': 'Objetivo_Estrategico'
+        'N2 - Secretaria': 'Orgao', 'N2 - Nome': 'Iniciativa', 'N2 - Status Informado': 'Status_Informado',
+        'N2 - Ação Orçamentária': 'Acao', 'N2 - Programa Orçamentário': 'Programa', 'N2 - Início Realizado': 'Inicio_Realizado',
+        'N2 - Término Realizado': 'Termino_Realizado', 'N2 - Resultado': 'RGS_GGGE',
+        'N2 - Localização Geográfica': 'Localizacao_Geografica', 'N1 - Nome': 'Objetivo_Estrategico'
     }, inplace=True, errors='ignore')
-
+    
     colunas_necessarias = ['Orgao', 'Iniciativa', 'Status_Informado', 'Acao', 'Programa',
                            'Inicio_Realizado', 'Termino_Realizado', 'RGS_GGGE',
                            'Localizacao_Geografica', 'Objetivo_Estrategico']
